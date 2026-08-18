@@ -1,0 +1,43 @@
+# docker-compose.yml
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    container_name: n8n_july20
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      N8N_DEFAULT_BINARY_DATA_MODE: filesystem
+      N8N_COMMUNITY_PACKAGES_ALLOWED_TOOL_USAGE: "true"
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+
+      GENERIC_TIMEZONE: Africa/Lagos
+
+      N8N_PROTOCOL: http
+      N8N_PORT: "5678"
+      N8N_HOST: famished-jackal-consumer.ngrok-free.dev
+
+      WEBHOOK_URL: https://famished-jackal-consumer.ngrok-free.dev/
+      N8N_EDITOR_BASE_URL: https://famished-jackal-consumer.ngrok-free.dev/
+
+      N8N_SECURE_COOKIE: "true"
+      N8N_PROXY_HOPS: "1"
+
+    volumes:
+      - n8n_data:/home/node/.n8n
+
+  tunnel:
+    image: ngrok/ngrok:latest
+    container_name: ngrok_tunnel_permanent
+    restart: unless-stopped
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
+    command:
+      - http
+      - n8n:5678
+      - --url=famished-jackal-consumer.ngrok-free.dev
+    depends_on:
+      - n8n
+
+volumes:
+  n8n_data:
