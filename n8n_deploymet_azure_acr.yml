@@ -1,0 +1,61 @@
+name: Push to ACR and Deploy Docker Compose to Azure Container Apps
+
+on:
+  push:
+    branches: [ "main" ]
+
+permissions:
+  id-token: write # Required for OIDC login
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Log in to Azure via OIDC
+      uses: azure/login@v2
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+    - name: Install Azure Container App CLI Extension
+      run: |
+        az extension add --name containerapp --upgrade
+
+    - name: Import Images from Public Registries to Azure Container Registry (ACR)
+      run: |
+        # Pulls official images directly into your private ACR repository
+        az acr import \
+          --name ${{ secrets.AZURE_ACR_NAME }} \
+          --source docker.n8n.io/n8nio/n8n:latest \
+          --image n8nio/n8n:latest \
+          --force
+
+        az acr import \
+          --name ${{ secrets.AZURE_ACR_NAME }} \
+          --source ngrok/ngrok:latest \
+          --image ngrok/ngrok:latest \
+          --force
+
+    - name: Deploy Docker Compose to Azure Container Apps
+      env:
+        NGROK_AUTHTOKEN: ${{ secrets.NGROK_AUTHTOKEN }}
+        ACR_NAME: ${{ secrets.AZURE_ACR_NAME }}
+      run: |
+        # Fetch ACR Admin Credentials for deployment authorization
+        ACR_USERNAME=$(az acr credential show --name $ACR_NAME --query username -o tsv)
+        ACR_PASSWORD=$(az acr credential show --name $ACR_NAME --query passwords[0].value -o tsv)
+
+        # Deploy compose stack natively onto Azure Container Apps Environment
+        az containerapp compose create \
+          --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+          --environment ${{ secrets.AZURE_ACA_ENV }} \
+          --compose-file-path docker-compose.yml \
+          --registry-server ${ACR_NAME}.azurecr.io \
+          --registry-username $ACR_USERNAME \
+          --registry-password $ACR_PASSWORD
