@@ -20,6 +20,9 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+      - name: remove existing file
+        run: |
+          ssh -i ${{ secrets.SSH_PRIVATE_KEY }} -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "rm -f /home/olu/n8n/docker-compose.yml"
 
       # Step 1: Copy docker-compose.yml from repository to Azure VM
       - name: Copy docker-compose.yml to VM
